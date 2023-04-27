@@ -21,7 +21,7 @@ catch (Exception ex)
 
 char[,] maze = Maze(fileName);
 
-//Getting the start and end indexes
+//Getting the start indexes
 int startRow = -1;
 int startCol = -1;
 
@@ -147,7 +147,7 @@ static char[,]? Maze(string fileName)
     }
     else
     {
-        Console.WriteLine("Please make sure the maze's line format is correct: " +
+        Console.WriteLine("\nPlease make sure the maze's line format is correct: " +
         "\n 1) Ensure that the file is not blank and the maze is a rectengle" +
         "\n 1) Width has to be between 3 and 255, yours is " + width +
         "\n 2) Height has to be between 3 and 255, yours is " + height +
