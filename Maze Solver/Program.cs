@@ -1,33 +1,24 @@
-﻿// See https://aka.ms/new-console-template for more information
-
-using System.ComponentModel;
-using System.IO;
-using System.Reflection.Metadata.Ecma335;
-using System.Transactions;
-
+﻿
+//Taking the file as an argument
 string fileName = "";
-
 try
 {
-    //File is located in Maze-Solver\Maze Solver\bin\Debug\net6.0\*fileName.txt*
+    //Files are located in Maze-Solver\Maze Solver\bin\Debug\net6.0\*fileName.txt
     Console.Write("Enter your filename with the extention: ");
     fileName = Console.ReadLine();
 
-}
-catch (FileNotFoundException ex)
-{
-    Console.WriteLine(ex.Message);
-}
-catch (IOException ex)
-{
-    Console.WriteLine(ex.Message);
+    while (!File.Exists(fileName))
+    {
+        Console.WriteLine(@"The file named '{0}' not found or exists in \Maze Solver\bin\Debug\net6.0." + "\nPlease make sure that you are including the extention of the file, such as maze.txt",fileName);
+        Console.Write("\nPlease Enter your filename again with the extention: ");
+        fileName = Console.ReadLine();
+    }
 }
 catch (Exception ex)
 {
     Console.WriteLine("An error occurred: " + ex.Message);
 }
 
-//string[] lines = File.ReadAllLines(fileName);
 char[,] maze = Maze(fileName);
 
 //Getting the start and end indexes
@@ -141,7 +132,7 @@ static char[,]? Maze(string fileName)
         rightSideHasX = line.EndsWith('X');
     }
 
-    //Validating the mazeMatrix
+    //Validating the matrix
     if (
             lines != null &&
             (width >= 3 && width <= 255) && //Checking if width and height is between 3 and 255 and is a rectengle
@@ -177,7 +168,7 @@ static char[,]? Maze(string fileName)
     }
 }
 
-//Method will return if the recursion algorithm was successful or not
+//Method will return if the recursion algorithm successful or not on finding a path
 static bool SolveMaze(int rowIndex, int colIndex, bool[,] pathsAlreadyTaken, List<int[]> paths, char[,] maze)
 {
     bool shouldCheck = true;
@@ -204,7 +195,6 @@ static bool SolveMaze(int rowIndex, int colIndex, bool[,] pathsAlreadyTaken, Lis
         {
             shouldCheck = false;
         }
-
     }
 
     if (shouldCheck)
@@ -212,56 +202,18 @@ static bool SolveMaze(int rowIndex, int colIndex, bool[,] pathsAlreadyTaken, Lis
         paths.Add(new int[] { rowIndex, colIndex });
         pathsAlreadyTaken[rowIndex, colIndex] = true;
 
-        //Check right tile
-        correctPath = correctPath || SolveMaze(rowIndex +1, colIndex, pathsAlreadyTaken, paths, maze);
-        //Check down tile
-        correctPath = correctPath || SolveMaze(rowIndex, colIndex - 1, pathsAlreadyTaken, paths, maze);
-        //check left tile
-        correctPath = correctPath || SolveMaze(rowIndex - 1, colIndex, pathsAlreadyTaken, paths, maze);
-        //check up tile
+        //Check west path
+        correctPath = correctPath || SolveMaze(rowIndex -1, colIndex, pathsAlreadyTaken, paths, maze);
+        //Check north path
         correctPath = correctPath || SolveMaze(rowIndex, colIndex + 1, pathsAlreadyTaken, paths, maze);
+        //check east path
+        correctPath = correctPath || SolveMaze(rowIndex + 1, colIndex, pathsAlreadyTaken, paths, maze);
+        //check south path
+        correctPath = correctPath || SolveMaze(rowIndex, colIndex - 1, pathsAlreadyTaken, paths, maze);
     }
 
     return correctPath;
 }
-
-static bool Solve(int rowIndex, int colIndex, bool[,] pathsAlreadyTaken, List<int[]> paths, char[,] maze)
-{
-    if (maze[rowIndex, colIndex] == 'E')
-    {
-        return true;
-    }
-
-    if (maze[rowIndex, colIndex] == 'X' || pathsAlreadyTaken[rowIndex, colIndex])
-    {
-        return false;
-    }
-
-    pathsAlreadyTaken[rowIndex, colIndex] = true;
-    paths.Add(new int[] { rowIndex, colIndex });
-
-    //Checking if the points are within boundary and left, right, top and bottom of the maze, respectively.
-    if (rowIndex > 0 && Solve(rowIndex - 1, colIndex, pathsAlreadyTaken, paths, maze))
-    {
-        return true;
-    }
-    if (rowIndex < maze.GetLength(0) - 1 && Solve(rowIndex + 1, colIndex, pathsAlreadyTaken, paths, maze))
-    {
-        return true;
-    }
-    if (rowIndex > 0 && Solve(rowIndex, colIndex - 1, pathsAlreadyTaken, paths, maze))
-    {
-        return true;
-    }
-    if (colIndex < maze.GetLength(1) - 1 && Solve(rowIndex, colIndex + 1, pathsAlreadyTaken, paths, maze))
-    {
-        return true;
-    }
-
-    return false;
-}
-
-
 
 //Method to write '.' to each of the coordinates of the path which have been taken
 static void WriteToFile(List<int[]> paths, string fileName)
