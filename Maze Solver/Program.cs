@@ -1,44 +1,88 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
+using System.ComponentModel;
+using System.IO;
+using System.Reflection.Metadata.Ecma335;
+using System.Transactions;
 
-using System.Security.Cryptography.X509Certificates;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
+string fileName = "";
 
 try
 {
-    //File is located in Maze-Solver\Maze Solver\bin\Debug\net6.0\maze.txt
-    //Please type in your file path along with the name of the text file between ""
-    var fileName = @"maze.txt";
-    Maze(fileName);
+    //File is located in Maze-Solver\Maze Solver\bin\Debug\net6.0\*fileName.txt*
+    Console.Write("Enter your filename with the extention: ");
+    fileName = Console.ReadLine();
 
-    //char[,] a = Maze(fileName);
-    //for (int i = 0; i < a.GetLength(0); i++)
-    //{
-    //    for (int j = 0; j < a.GetLength(1); j++)
-    //    {
-    //        Console.Write(a[i, j].ToString());
-
-    //    }
-    //    Console.WriteLine();
-    //}
-
+}
+catch (FileNotFoundException ex)
+{
+    Console.WriteLine(ex.Message);
+}
+catch (IOException ex)
+{
+    Console.WriteLine(ex.Message);
 }
 catch (Exception ex)
 {
-    Console.WriteLine("Exception" + ex.Message);
+    Console.WriteLine("An error occurred: " + ex.Message);
 }
+
+//string[] lines = File.ReadAllLines(fileName);
+char[,] maze = Maze(fileName);
+
+//Getting the start and end indexes
+int startRow = -1;
+int startCol = -1;
+
+//A list of the path which have already been taken
+bool[,] pathsAlreadyTaken = new bool[maze.GetLength(0), maze.GetLength(1)];
+
+//A list of path (row, column) to write to file
+List<int[]> paths = new List<int[]>();
+
+//Checking at which index we are starting at.
+for (int i = 0; i < maze.GetLength(0); i++)
+{
+    for (int j = 0; j < maze.GetLength(1); j++)
+    {
+        if (maze[i, j] == 'S')
+        {
+            startRow = i;
+            startCol = j;
+        }
+    }
+}
+int[] start = { startRow, startCol };
+
+//If the recursion algorithm solves the maze, it'll write "." into a seperate text file
+if (SolveMaze(start[0], start[1], pathsAlreadyTaken, paths, maze))
+{
+    Console.WriteLine("\nPath found!");
+
+    //Skpiing the coordinates of S so it will be visiable in the saved doc
+    List<int[]> newPaths = paths.Skip(1).ToList();
+    WriteToFile(newPaths, fileName);
+}
+else Console.WriteLine("\nPath not found");
 
 
 
 //Method to validate the text file and returning the maze.
-static char[,] Maze(string fileName)
+static char[,]? Maze(string fileName)
 {
     string[] lines = File.ReadAllLines(fileName);
-
     var height = lines.Length;
     var width = lines[0].Length;
+    bool isRectengle = false;
+
+    //Checking if all line's width are the same
+    for(int i = 0; i < height; i++)
+    {
+        if(lines[i].Length == width && height != width)
+        {
+            isRectengle = true; 
+        }
+    }
 
     //Creating a 2D array using the file where index i represents each element in row of the matrix and index j represent each element in column
 
@@ -49,11 +93,10 @@ static char[,] Maze(string fileName)
     int totalS = 0;
     int totalE = 0;
 
-
-    //Adding data to the 2D array from the lines array
-    for (int i = 0; i < lines.Length; i++) //Rows
+    //Adding data to the 2D array from the lines array while checking total number of S and E
+    for (int i = 0; i < height; i++)
     {
-        for (int j = 0; j < lines[0].Length; j++) //Column
+        for (int j = 0; j < width; j++)
         {
             mazeMatrix[i, j] = lines[i][j];
             if (mazeMatrix[i, j] == 'S')
@@ -64,10 +107,8 @@ static char[,] Maze(string fileName)
             {
                 totalE++;
             }
-
         }
     }
-
 
     //Validating to see if the first line(top) and the last line(bottom) has all X values
     var firstLine = lines[0].ToCharArray();
@@ -82,7 +123,6 @@ static char[,] Maze(string fileName)
             firstLineHasAllX = true;
         }
     }
-
     foreach (char element in lastLine)
     {
         if (element == 'X')
@@ -101,38 +141,14 @@ static char[,] Maze(string fileName)
         rightSideHasX = line.EndsWith('X');
     }
 
-
-    //checking data
-    //Console.WriteLine("Width: " + width);
-    //Console.WriteLine("Height: " + height);
-    //Console.WriteLine("S: " + totalS);
-    //Console.WriteLine("E: " + totalE);
-
-    //Console.WriteLine("Matrix: ");
-    //for (int i = 0; i < mazeMatrix.GetLength(0); i++)
-    //{
-    //    for (int j = 0; j < mazeMatrix.GetLength(1); j++)
-    //    {
-    //        Console.Write(mazeMatrix[i, j].ToString());
-
-    //    }
-    //    Console.WriteLine();
-    //}
-
-    //Console.WriteLine("Top has X: " + firstLineHasAllX);
-    //Console.WriteLine("Bottom has X: " + lastLineHasAllX);
-
-    //Console.WriteLine("left side: " + leftSideHasX);
-    //Console.WriteLine("right side: " + rightSideHasX);
-
     //Validating the mazeMatrix
     if (
             lines != null &&
-            (width >= 3 && width <= 255) && //Checking if width and height is between 3 and 255 and not the same
+            (width >= 3 && width <= 255) && //Checking if width and height is between 3 and 255 and is a rectengle
             (height >= 3 && height <= 255) &&
-            (width != height) &&
-            (leftSideHasX == true && rightSideHasX == true) && //Checking if right and left side of the maze has all X or wall
-            (firstLineHasAllX == true && lastLineHasAllX == true) &&//Checking if first row and last row has all X or wall 
+            isRectengle &&
+            (leftSideHasX && rightSideHasX) && //Checking if right and left side of the maze has all X or wall
+            (firstLineHasAllX && lastLineHasAllX) &&//Checking if first row and last row has all X or wall 
             (totalE == 1 && totalS == 1) //Checking if there is exactly one S and one E
         )
     {
@@ -141,83 +157,153 @@ static char[,] Maze(string fileName)
     else
     {
         Console.WriteLine("Please make sure the maze's line format is correct: " +
+        "\n 1) Ensure that the file is not blank and the maze is a rectengle" +
         "\n 1) Width has to be between 3 and 255, yours is " + width +
         "\n 2) Height has to be between 3 and 255, yours is " + height +
-        "\n 3) Height and Width can not have the same length" +
+        "\n 3) Height and Width can not have the same length" + 
         "\n 4) The maze has to be surrounded by X, no other characters." +
-        "\n 5) There should be exactly one S (start point) and one E (end point) in each maze, you have " + totalS +" S and " + totalE + " E.");
-        char[,] matrix = new char[0, 0];
-        return matrix;
+        "\n 5) There should be exactly one S (start point) and one E (end point) in each maze, you have " + totalS +" S and " + totalE + " E." + 
+        "\n \n This is the outline of your maze, please fix the necessary errors. \n");
+        for (int i = 0; i < mazeMatrix.GetLength(0); i++)
+        {
+            for (int j = 0; j < mazeMatrix.GetLength(1); j++)
+            {
+                Console.Write(mazeMatrix[i, j].ToString());
+            }
+            Console.WriteLine();
+        }
+        char[,] emptyMatrix = new char[0, 0];
+        return emptyMatrix;
+    }
+}
+
+//Method will return if the recursion algorithm was successful or not
+static bool SolveMaze(int rowIndex, int colIndex, bool[,] pathsAlreadyTaken, List<int[]> paths, char[,] maze)
+{
+    bool shouldCheck = true;
+    bool correctPath = false;
+
+    //Checking if it is out of bound
+    if (rowIndex >= maze.GetLength(0) || rowIndex < 0 || colIndex >= maze.GetLength(1) || colIndex < 0)
+    {
+        shouldCheck = false;
+    }
+    else
+    {
+        if (maze[rowIndex, colIndex] == 'E')
+        {
+            shouldCheck = false;
+            correctPath = true;
+        }
+        //If it hits a wall, or goes back to an already explored path
+        if (maze[rowIndex, colIndex] == 'X')
+        {
+            shouldCheck = false;
+        }
+        if (pathsAlreadyTaken[rowIndex, colIndex])
+        {
+            shouldCheck = false;
+        }
+
     }
 
+    if (shouldCheck)
+    {
+        paths.Add(new int[] { rowIndex, colIndex });
+        pathsAlreadyTaken[rowIndex, colIndex] = true;
+
+        //Check right tile
+        correctPath = correctPath || SolveMaze(rowIndex +1, colIndex, pathsAlreadyTaken, paths, maze);
+        //Check down tile
+        correctPath = correctPath || SolveMaze(rowIndex, colIndex - 1, pathsAlreadyTaken, paths, maze);
+        //check left tile
+        correctPath = correctPath || SolveMaze(rowIndex - 1, colIndex, pathsAlreadyTaken, paths, maze);
+        //check up tile
+        correctPath = correctPath || SolveMaze(rowIndex, colIndex + 1, pathsAlreadyTaken, paths, maze);
+    }
+
+    return correctPath;
+}
+
+static bool Solve(int rowIndex, int colIndex, bool[,] pathsAlreadyTaken, List<int[]> paths, char[,] maze)
+{
+    if (maze[rowIndex, colIndex] == 'E')
+    {
+        return true;
+    }
+
+    if (maze[rowIndex, colIndex] == 'X' || pathsAlreadyTaken[rowIndex, colIndex])
+    {
+        return false;
+    }
+
+    pathsAlreadyTaken[rowIndex, colIndex] = true;
+    paths.Add(new int[] { rowIndex, colIndex });
+
+    //Checking if the points are within boundary and left, right, top and bottom of the maze, respectively.
+    if (rowIndex > 0 && Solve(rowIndex - 1, colIndex, pathsAlreadyTaken, paths, maze))
+    {
+        return true;
+    }
+    if (rowIndex < maze.GetLength(0) - 1 && Solve(rowIndex + 1, colIndex, pathsAlreadyTaken, paths, maze))
+    {
+        return true;
+    }
+    if (rowIndex > 0 && Solve(rowIndex, colIndex - 1, pathsAlreadyTaken, paths, maze))
+    {
+        return true;
+    }
+    if (colIndex < maze.GetLength(1) - 1 && Solve(rowIndex, colIndex + 1, pathsAlreadyTaken, paths, maze))
+    {
+        return true;
+    }
+
+    return false;
 }
 
 
 
+//Method to write '.' to each of the coordinates of the path which have been taken
+static void WriteToFile(List<int[]> paths, string fileName)
+{
+    //Taking the original file, and creating a copy with a different name
+    var fileNameWOext = Path.GetFileNameWithoutExtension(fileName);
+    var savedFileName = fileNameWOext + "-solution.txt";
+    File.Copy(fileName, savedFileName, true);
 
-    //foreach (string line in lines)
-    //{
-    //    //Getting the width of each line
-    //    width = line.Length;
+    //Creating a matrix/2d array
+    string[] lines = File.ReadAllLines(savedFileName);
+    var height = lines.Length;
+    var width = lines[0].Length;
+    char[,] solutionMatrix = new char[height, width];
 
-    //    //Getting the first and the last element of each line to see if they all start with X and ends with X as well
-    //    var firstElementHasX = line.StartsWith('X');
-    //    var lastElementHasX = line.EndsWith('X');
+    //Viewing the solution to the user
+    for (int i = 0; i < height; i++)
+    {
+        for (int j = 0; j < width; j++)
+        {
+            solutionMatrix[i, j] = lines[i][j];
+            foreach (var path in paths)
+            {
+                solutionMatrix[path[0], path[1]] = '.';
+            }
+            Console.Write(solutionMatrix[i, j].ToString());
 
+        }
+        Console.WriteLine();
+    }
 
-    //    //Checking if there is S and E in the maze, if so, is there exact one of each.
-    //    var charLine = line.ToCharArray();
-    //    var s = charLine.Count(i => i == 'S');
-    //    totalS += s;
-    //    //Console.WriteLine(totalS);
+    //Writing the file
+    using (StreamWriter writer = new StreamWriter(savedFileName))
+    {
 
-    //    var e = charLine.Count(i => i == 'E');
-    //    totalE += e;
-    //    //Console.WriteLine(totalE);
-
-
-    //    var S = line.IndexOf('S');
-    //    var E = line.IndexOf('E');
-
-
-
-    //    //Doing validations
-    //    if (
-
-    //            (width >= 3 && width <= 255) && //Checking if width and height is between 3 and 255 and not the same
-    //            (height >= 3 && height <= 255) &&
-    //            (width != height) &&
-    //            (firstElementHasX == true && lastElementHasX == true) && //Checking if right and left side of the maze has all X or wall
-    //            (firstLineHasAllX == true && lastLineHasAllX == true) &&//Checking if first row and last row has all X or wall 
-    //            (totalE == 1 && totalS == 1)
-    //        )
-    //    {
-    //        //Console.WriteLine(line);
-    //        //Console.WriteLine(firstElementHasX);
-    //        //Console.WriteLine(lastElementHasX);
-    //        //Console.WriteLine(S);
-    //        //Console.WriteLine(E);
-    //    }
-    //    else
-    //    {
-    //        Console.WriteLine("Please make sure the maze's line format is correct: " +
-    //        "\n 1) Width has to be between 3 and 255, yours is " + width +
-    //        "\n 2) Height has to be between 3 and 255, yours is " + height +
-    //        "\n 3) Height and Width can not have the same length" +
-    //        "\n 4) The maze has to be surrounded by X, no other characters." +
-    //        "\n 5) There should be exactly one S (start point) and one E (end point) in each maze");
-    //    }
-
-    //}
-
-
-    //StreamReader file = new StreamReader("maze.txt");
-    //var line  = file.ReadLine();  
-    //Console.WriteLine(line);
-    //while(line != null)
-    //{
-    //    Console.WriteLine(line);
-    //    line = file.ReadLine();
-    //}
-
-    //file.Close();
+        for (int i = 0; i < height; i++)
+        {
+            for (int j = 0; j < width; j++)
+            {
+                writer.Write(solutionMatrix[i, j]);
+            }
+            writer.WriteLine();
+        }
+    }
+}
